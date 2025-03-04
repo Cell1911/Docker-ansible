@@ -1,0 +1,80 @@
+---
+
+- name: Update apt and install dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - gnupg
+      - python3-pip
+      - pipx
+    state: present
+    update_cache: yes
+
+- name: Ensure pipx is in the user's path
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+
+- name: Install Docker SDK for Python (Fix pip issue)
+  shell: pip install docker --break-system-packages
+
+
+- name: Add Docker GPG key
+  shell: |
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | tee /etc/apt/keyrings/docker.asc > /dev/null
+    chmod a+r /etc/apt/keyrings/docker.asc
+
+- name: Add Docker repository
+  shell: |
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+- name: Update apt cache again after adding repository
+  apt:
+    update_cache: yes
+
+- name: Install Docker
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: latest
+
+- name: Ensure Docker is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+
+- name: Pull Nginx image
+  docker_image:
+    name: nginx
+    source: pull
+
+- name: Ensure Nginx HTML folder exists
+  file:
+    path: /home/ubuntu/nginx-html
+    state: directory
+    mode: '0755'
+
+- name: Copy index.html to the server
+  copy:
+    src: index.html
+    dest: /home/ubuntu/nginx-html/index.html
+
+- name: Run Nginx container with mounted volume
+  docker_container:
+    name: nginx-server
+    image: nginx
+    state: started
+    restart_policy: always
+    ports:
+      - "80:80"
+    volumes:
+      - "/home/ubuntu/nginx-html:/usr/share/nginx/html"

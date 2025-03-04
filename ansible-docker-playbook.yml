@@ -1,0 +1,7 @@
+---
+- name: Install and Deploy Docker + Nginx Container
+  hosts: ec2
+  become: yes
+  remote_user: ubuntu
+  roles:
+    - custom-role
